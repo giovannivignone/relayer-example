@@ -1,0 +1,3 @@
+class SignedTransactionObject {
+    text: string;
+}
