@@ -6,9 +6,16 @@ export class DefenderRelayController {
   constructor(private readonly defenderRelayService: DefenderRelayService) {}
 
   @Post('/relay-transaction:signedTransactionObject')
-  relayTransaction(@Param('signedTransactionObject') signedTransactionObject: string): string {
-    console.log(signedTransactionObject);
-    return 'relay-transaction';
+  async relayTransaction(
+    @Param('signedTransactionObject')
+    signedTransactionObject: SignedTransactionObject):
+    Promise<string> {
+    return await this.defenderRelayService.relayTransaction(signedTransactionObject);
+  }
+
+  @Post('/white-list-me:address')
+    async whitelistAddress(@Param('address') address: string):Promise<string[]> {
+    return await this.defenderRelayService.whitelistAddress(address);
   }
 
   @Get()

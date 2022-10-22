@@ -1,3 +1,3 @@
-class SignedTransactionObject {
+interface SignedTransactionObject {
     text: string;
 }
