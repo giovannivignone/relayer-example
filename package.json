@@ -26,12 +26,14 @@
     "@nestjs/core": "^8.0.0",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^8.0.0",
+    "@openzeppelin/contracts": "^4.7.3",
     "defender-relay-client": "^1.31.1",
     "dotenv": "^16.0.3",
     "ethers": "^5.7.2",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^7.2.0"
+    "rxjs": "^7.2.0",
+    "web3": "^1.8.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",

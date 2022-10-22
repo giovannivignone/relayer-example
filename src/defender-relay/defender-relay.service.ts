@@ -1,11 +1,17 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { RelayClient, Relayer, RelayerGetResponse } from 'defender-relay-client'
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { RelayClient, Relayer, RelayerGetResponse, RelayerTransaction } from 'defender-relay-client'
 import { ethers } from 'ethers';
+import { ERC_20_ABI } from './constants/constants';
+import { TransactionFields } from './interfaces/transaction-fields.model';
+import { DefenderRelaySigner, DefenderRelayProvider } from 'defender-relay-client/lib/ethers';
+
 
 @Injectable()
 export class DefenderRelayService {
   private relayer: Relayer;
   private relayerClient: RelayClient;
+  private relaySigner: DefenderRelaySigner;
+  private relayProvider: DefenderRelayProvider;
 
   constructor() {
     this.relayer = new Relayer({
@@ -16,10 +22,30 @@ export class DefenderRelayService {
       apiKey: process.env.DEFENDER_TEAM_API_KEY,
       apiSecret: process.env.DEFENDER_TEAM_SECRET_KEY,
     });
+    this.relayProvider = new DefenderRelayProvider({
+      apiKey: process.env.RELAYER_API_KEY,
+      apiSecret: process.env.RELAYER_SECRET_KEY,
+    });
+    this.relaySigner = new DefenderRelaySigner({
+      apiKey: process.env.RELAYER_API_KEY,
+      apiSecret: process.env.RELAYER_SECRET_KEY,
+    }, this.relayProvider, {speed: "fast"})
   }
 
-  relayTransaction(signedTransaction: SignedTransactionObject): string {
-    return 'This action adds a new defenderRelay';
+  /**
+   * Mints a single ERC20 token to the specified address only if they are whitelisted
+   * @param {string} address - address to send the ERC20 token to
+   * @returns {Promise<RelayerTransaction>} - transaction object executed by the relayer
+   * @throws {UnauthorizedException} - Error if the address is not whitelisted
+   */
+  async getFreeToken(address: string) {
+    
+    try {
+      return await this.executeERC20TransferPayload(address);
+    } catch (e) {
+      console.log(e)
+      throw new UnauthorizedException("Address not whitelisted");
+    }
   }
 
   /**
@@ -30,16 +56,27 @@ export class DefenderRelayService {
    */
   async whitelistAddress(address: string): Promise<string[]> {
     await this.checkValidAddress(address);
+    await this.isUserWhitelistable(address);
     let relayerInformation: RelayerGetResponse = await this.relayer.getRelayer();
     const currentWhitelist: string[] = relayerInformation.policies.whitelistReceivers ? relayerInformation.policies.whitelistReceivers : [];
     const newWhitelist: string[] = Array.from(new Set([...currentWhitelist, address]))
-    console.log(currentWhitelist, newWhitelist);
     relayerInformation = await this.relayerClient.update(relayerInformation.relayerId, {
       policies: {
         whitelistReceivers: newWhitelist
       }
     })
     return relayerInformation.policies.whitelistReceivers ?? [];
+  }
+
+  /**
+   * Executes an ERC20 transfer data through the relayer provider
+   * @param {string} address - Address to send the ERC20 token to
+   * @returns {string} - Data payload field
+   */
+  private async executeERC20TransferPayload(address: string) {
+    const contract = new ethers.Contract(process.env.ERC_20_TOKEN_ADDRESS, ERC_20_ABI, this.relaySigner);
+    const payload = await contract.transfer(address, 1e18.toString());
+    return payload.wait();
   }
 
   /**
@@ -53,7 +90,12 @@ export class DefenderRelayService {
     }
   }
 
-  findAll() {
-    return `This action returns all defenderRelay`;
+  /**
+   * Check if input address is whitelistable according to business logic
+   * @param address - adress that is inputted from user request
+   * @throws {UnauthorizedException} - Error if the address is not whitelistable
+   */
+  async isUserWhitelistable(address: string) {
+    // Use business logic to gate whitelist here
   }
 }

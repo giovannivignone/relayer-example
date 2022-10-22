@@ -1,3 +1,0 @@
-interface SignedTransactionObject {
-    text: string;
-}
