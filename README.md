@@ -1,5 +1,5 @@
 # Defender-Relayer-Example
-Nestjs server leveraging relayers to automate token issuance
+Nestjs server leveraging relayers to automate ERC20 token issuance.
 
 ## Description
 This repository contains a best practice example of serverside initiated transactions. 
