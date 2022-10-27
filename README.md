@@ -1,4 +1,4 @@
-# Defender-Relayer-example
+# Defender-Relayer-Example
 Nestjs server leveraging relayers to automate token issuance
 
 ## Description
