@@ -13,8 +13,13 @@ export class DefenderRelayController {
     return await this.defenderRelayService.getFreeToken(address);
   }
 
-  @Post('/white-list-me:address')
-    async whitelistAddress(@Param('address') address: string):Promise<string[]> {
+  @Post('/white-list-user-address:address')
+    async whitelistUserAddress(@Param('address') address: string):Promise<string[]> {
     return await this.defenderRelayService.whitelistAddress(address);
+  }
+
+  @Post('/add-ERC20-to-whitelist:address')
+  async addERC20ToWhitelist(@Param('address') address: string): Promise<string[]> {
+    return await this.defenderRelayService.whitelistERC20TokenAddress(address);
   }
 }

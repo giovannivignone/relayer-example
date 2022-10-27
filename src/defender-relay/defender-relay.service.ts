@@ -2,8 +2,8 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { RelayClient, Relayer, RelayerGetResponse, RelayerTransaction } from 'defender-relay-client'
 import { ethers } from 'ethers';
 import { ERC_20_ABI } from './constants/constants';
-import { TransactionFields } from './interfaces/transaction-fields.model';
 import { DefenderRelaySigner, DefenderRelayProvider } from 'defender-relay-client/lib/ethers';
+import { PermissionsService } from 'src/permissions/permissions.service';
 
 
 @Injectable()
@@ -13,7 +13,9 @@ export class DefenderRelayService {
   private relaySigner: DefenderRelaySigner;
   private relayProvider: DefenderRelayProvider;
 
-  constructor() {
+  constructor(
+    private readonly permissionsService: PermissionsService,
+  ) {
     this.relayer = new Relayer({
       apiKey: process.env.RELAYER_API_KEY,
       apiSecret: process.env.RELAYER_SECRET_KEY,
@@ -39,7 +41,6 @@ export class DefenderRelayService {
    * @throws {UnauthorizedException} - Error if the address is not whitelisted
    */
   async getFreeToken(address: string) {
-    
     try {
       return await this.executeERC20TransferPayload(address);
     } catch (e) {
@@ -56,24 +57,30 @@ export class DefenderRelayService {
    */
   async whitelistAddress(address: string): Promise<string[]> {
     await this.checkValidAddress(address);
-    await this.isUserWhitelistable(address);
-    let relayerInformation: RelayerGetResponse = await this.relayer.getRelayer();
-    const currentWhitelist: string[] = relayerInformation.policies.whitelistReceivers ? relayerInformation.policies.whitelistReceivers : [];
-    const newWhitelist: string[] = Array.from(new Set([...currentWhitelist, address]))
-    relayerInformation = await this.relayerClient.update(relayerInformation.relayerId, {
-      policies: {
-        whitelistReceivers: newWhitelist
-      }
-    })
-    return relayerInformation.policies.whitelistReceivers ?? [];
+    await this.permissionsService.isUserWhitelistable(address);
+    return await this.modifyRelayerWhitelist(address);
+  }
+
+  /**
+   * Whitelists an address to be able to send transactions to the relayer
+   * @param {string} address - The address to whitelist
+   * @returns {string[]} - The addresses whitelisted by relayer
+   * @throws - BadRequestException if the address is not a valid Ethereum address
+   */
+  async whitelistERC20TokenAddress(address: string): Promise<string[]> {
+    await this.checkValidAddress(address);
+    await this.permissionsService.isUserAdmin(address);
+    return await this.modifyRelayerWhitelist(address);
   }
 
   /**
    * Executes an ERC20 transfer data through the relayer provider
    * @param {string} address - Address to send the ERC20 token to
    * @returns {string} - Data payload field
+   * @private
    */
   private async executeERC20TransferPayload(address: string) {
+    await this.permissionsService.checkPermissionsToTransferERC20(address);
     const contract = new ethers.Contract(process.env.ERC_20_TOKEN_ADDRESS, ERC_20_ABI, this.relaySigner);
     const payload = await contract.transfer(address, 1e18.toString());
     return payload.wait();
@@ -83,6 +90,7 @@ export class DefenderRelayService {
    * Check if input address is valid
    * @param address - adress that is inputted from user request
    * @throws {BadRequestException} - Error if the address is not valid
+   * @private
    */
   private checkValidAddress(address: string) {
     if (!(ethers.utils.isAddress(address))) {
@@ -91,11 +99,20 @@ export class DefenderRelayService {
   }
 
   /**
-   * Check if input address is whitelistable according to business logic
-   * @param address - adress that is inputted from user request
-   * @throws {UnauthorizedException} - Error if the address is not whitelistable
+   * Modifies the relayer's whitelist to include the specified address
+   * @param {string} address - Address to whitelist
+   * @returns {Promise<string[]>} - The addresses whitelisted by relayer
+   * @private
    */
-  async isUserWhitelistable(address: string) {
-    // Use business logic to gate whitelist here
+  private async modifyRelayerWhitelist(address: string): Promise<string[]> {
+    let relayerInformation: RelayerGetResponse = await this.relayer.getRelayer();
+    const currentWhitelist: string[] = relayerInformation.policies.whitelistReceivers ? relayerInformation.policies.whitelistReceivers : [];
+    const newWhitelist: string[] = Array.from(new Set([...currentWhitelist, address]))
+    relayerInformation = await this.relayerClient.update(relayerInformation.relayerId, {
+      policies: {
+        whitelistReceivers: newWhitelist
+      }
+    })
+    return relayerInformation.policies.whitelistReceivers ?? [];
   }
 }
